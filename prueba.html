@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inicio de Sesión Seguro</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.2.1/ethers.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f3f4f6;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #4caf50;
+    }
+
+    button {
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 15px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px 0;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: #43a047;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Inicia Sesión</h1>
+    <p>Conéctate utilizando MetaMask para acceder.</p>
+    <button id="connectMetaMask">Conectar con MetaMask</button>
+  </div>
+
+  <script>
+    const connectMetaMaskButton = document.getElementById('connectMetaMask');
+
+    // Redirección a la página de destino
+    const redireccionar = () => {
+      window.location.href = 'C:/Users/Vela/Pictures/BTXC/prueba2.html';
+    };
+
+    // Iniciar sesión con MetaMask
+    async function connectMetaMask() {
+      if (typeof window.ethereum === 'undefined') {
+        alert('MetaMask no está instalada. Serás redirigido para instalarla.');
+        window.location.href = 'https://metamask.io/download.html';
+        return;
+      }
+
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send('eth_requestAccounts', []);
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+
+        // Generar un mensaje único para firmar
+        const message = `Inicia sesión para acceder a nuestra página: ${Date.now()}`;
+        const signature = await signer.signMessage(message);
+
+        // Verificar la firma localmente (opcional: en un backend para mayor seguridad)
+        const recoveredAddress = ethers.verifyMessage(message, signature);
+        if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+          alert('Autenticación exitosa.');
+          redireccionar();
+        } else {
+          alert('Error al verificar la firma. Inténtalo de nuevo.');
+        }
+      } catch (error) {
+        console.error('Error durante la conexión:', error);
+        alert('No se pudo completar la conexión. Verifica MetaMask.');
+      }
+    }
+
+    connectMetaMaskButton.addEventListener('click', connectMetaMask);
+  </script>
+</body>
+</html>

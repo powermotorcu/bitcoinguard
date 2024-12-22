@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Transacciones de Bitcoin</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0e1a2b, #162447);
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* Contenedor genérico */
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: #1b1b1b;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            height: 350px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        h1 {
+            color: #ffd700;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        /* Tabla */
+        .table-wrapper {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table th, table td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #00ff99;
+        }
+
+        table th {
+            background: #0d1b2a;
+            color: #00ff99;
+            font-size: 12px;
+        }
+
+        table td {
+            font-size: 12px;
+            color: #e0e0e0;
+        }
+
+        table tr:nth-child(even) {
+            background: #1b263b;
+        }
+
+        table tr:nth-child(odd) {
+            background: #162447;
+        }
+
+        table tr:hover {
+            background: #0077cc;
+            color: white;
+        }
+
+        /* Input y botón */
+        label {
+            display: block;
+            text-align: left;
+            color: #e0e0e0;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #00ff99;
+            border-radius: 5px;
+            background: #121212;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #ffd700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #ff4040, #cc0000);
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #ff6666, #b30000);
+            transform: scale(1.02);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .loading, .error {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .loading {
+            color: #ffd700;
+        }
+
+        .error {
+            color: red;
+            display: none;
+        }
+
+        /* Adaptabilidad para móviles */
+        @media (max-width: 600px) {
+            .container {
+                width: 100%;
+                height: auto;
+            }
+
+            h1 {
+                font-size: 18px;
+            }
+
+            table th, table td {
+                font-size: 10px;
+                padding: 6px;
+            }
+
+            input {
+                font-size: 12px;
+                padding: 8px;
+            }
+
+            button {
+                font-size: 12px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Contenedor de Ver Transacciones -->
+    <div class="container">
+        <h1>Ver Transacciones de Bitcoin</h1>
+        <div id="loading-view" class="loading">Cargando transacciones...</div>
+        <div id="error-view" class="error">No se pudieron cargar las transacciones.</div>
+        <div class="table-wrapper">
+            <table id="transactionsTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Hash</th>
+                        <th>Tiempo</th>
+                        <th>Cantidad (BTC)</th>
+                        <th>Valor (EUR)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Transacciones cargadas dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Contenedor de Eliminar Transacciones -->
+    <div class="container">
+        <h1>Eliminar Transacción</h1>
+        <form id="deleteTransactionForm">
+            <label for="transactionId">ID de la Transacción:</label>
+            <input type="text" id="transactionId" placeholder="Ejemplo: 3b6e8f..." required>
+            <button type="submit">Eliminar Transacción</button>
+        </form>
+        <div id="loading-delete" class="loading">Procesando...</div>
+        <div id="success-delete" class="error" style="color: #00ff99; display: none;">Transacción eliminada exitosamente.</div>
+        <div id="error-delete" class="error">No se pudo eliminar la transacción.</div>
+    </div>
+
+    <script>
+        // Funcionalidad de Ver Transacciones
+        const API_URL_TRANSACTIONS = "https://blockstream.info/api/mempool/recent";
+        const API_URL_PRICE = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur";
+        let btcPriceEUR = 0;
+
+        const transactionsTable = document.getElementById('transactionsTable');
+        const loadingView = document.getElementById('loading-view');
+        const errorView = document.getElementById('error-view');
+        const tableBody = transactionsTable.querySelector('tbody');
+
+        async function fetchBTCPrice() {
+            try {
+                const response = await fetch(API_URL_PRICE);
+                const data = await response.json();
+                btcPriceEUR = data.bitcoin.eur;
+            } catch (error) {
+                btcPriceEUR = 0;
+            }
+        }
+
+        async function loadTransactions() {
+            try {
+                await fetchBTCPrice();
+                const response = await fetch(API_URL_TRANSACTIONS);
+                const transactions = await response.json();
+                loadingView.style.display = 'none';
+                transactionsTable.style.display = 'table';
+                tableBody.innerHTML = '';
+                transactions.slice(0, 3).forEach(tx => {
+                    const totalBTC = (tx.fee / 100000000).toFixed(8);
+                    const totalEUR = (totalBTC * btcPriceEUR).toFixed(2);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${tx.txid.substr(0, 20)}...</td>
+                        <td>${new Date().toLocaleString()}</td>
+                        <td>${totalBTC} BTC</td>
+                        <td>€${totalEUR}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch {
+                errorView.style.display = 'block';
+            }
+        }
+
+        setInterval(loadTransactions, 3000);
+        loadTransactions();
+
+        // Funcionalidad de Eliminar Transacciones
+        const deleteForm = document.getElementById('deleteTransactionForm');
+        const loadingDelete = document.getElementById('loading-delete');
+        const successDelete = document.getElementById('success-delete');
+        const errorDelete = document.getElementById('error-delete');
+
+        deleteForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const transactionId = document.getElementById('transactionId').value.trim();
+            loadingDelete.style.display = 'block';
+            successDelete.style.display = 'none';
+            errorDelete.style.display = 'none';
+
+            setTimeout(() => {
+                loadingDelete.style.display = 'none';
+                if (Math.random() > 0.5) {
+                    successDelete.style.display = 'block';
+                } else {
+                    errorDelete.style.display = 'block';
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
